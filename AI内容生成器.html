@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI内容生成器 - 高铁/服装/通用</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', sans-serif; background: #f0f2f5; margin: 0; }
+        .card { width: 375px; min-height: 500px; background: white; box-shadow: 0 4px 20px rgba(0,0,0,0.1); margin: 20px auto; overflow: hidden; position: relative; }
+        .theme-blue { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .theme-warm { background: #F5F5DC; color: #5D4E37; }
+        .theme-neon { background: #39FF14; color: #000; }
+        .theme-dark { background: #0a0a0a; color: #fff; }
+        .theme-pink { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; }
+        .theme-ocean { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; }
+        .loading { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .step { display: none; }
+        .step.active { display: block; }
+        .upload-area { border: 2px dashed #ccc; border-radius: 12px; padding: 40px; text-align: center; cursor: pointer; transition: all 0.2s; }
+        .upload-area:hover { border-color: #3b82f6; background: #f0f7ff; }
+        .image-preview { max-width: 200px; max-height: 150px; border-radius: 8px; margin-top: 10px; }
+        .cover-image { width: 100%; height: 200px; object-fit: cover; }
+    </style>
+</head>
+<body>
+    <div style="background: #000; color: #fff; padding: 12px 24px;">
+        <div style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center;">
+            <h1 style="font-weight: bold; font-size: 18px;">✨ AI内容生成器</h1>
+            <div style="display: flex; gap: 8px;">
+                <button onclick="switchMode('railway')" id="tab-railway" style="padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; border: none; cursor: pointer; background: #fff; color: #000;">🚄 高铁导览</button>
+                <button onclick="switchMode('fashion')" id="tab-fashion" style="padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; border: none; cursor: pointer; background: #374151; color: #fff;">👗 服装文案</button>
+                <button onclick="switchMode('general')" id="tab-general" style="padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; border: none; cursor: pointer; background: #374151; color: #fff;">📝 通用排版</button>
+            </div>
+        </div>
+    </div>
+
+    <div style="max-width: 1200px; margin: 0 auto; padding: 24px;">
+        <div id="step1" class="step active">
+            <div id="mode-railway">
+                <div style="background: #fff; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); padding: 32px;">
+                    <h2 style="font-size: 24px; font-weight: bold; margin-bottom: 24px;">🚄 高铁导览文案生成</h2>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                        <div>
+                            <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px;">车站名称 *</label>
+                            <input type="text" id="r-station" style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px;" placeholder="如：北京南站">
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px;">服务点类型 *</label>
+                            <select id="r-type" style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px;">
+                                <option value="进站口">进站口</option>
+                                <option value="安检口">安检口</option>
+                                <option value="候车大厅">候车大厅</option>
+                                <option value="检票口">检票口</option>
+                                <option value="服务台">服务台</option>
+                                <option value="餐饮购物">餐饮购物</option>
+                                <option value="出站换乘">出站/换乘</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="margin: 16px 0;">
+                        <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px;">上传现场照片（可选，会显示在封面）</label>
+                        <div class="upload-area" onclick="document.getElementById('r-image').click()">
+                            <div style="font-size: 32px; margin-bottom: 8px;">📷</div>
+                            <p style="color: #6b7280; font-size: 14px;">点击上传照片</p>
+                        </div>
+                        <input type="file" id="r-image" accept="image/*" style="display: none;" onchange="handleImage(this)">
+                        <div id="r-preview-box" style="display: none; margin-top: 12px;">
+                            <img id="r-preview" class="image-preview">
+                            <button onclick="clearImage()" style="margin-left: 12px; padding: 6px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; font-size: 12px; cursor: pointer;">删除</button>
+                        </div>
+                    </div>
+                    <button onclick="generateRailway()" style="width: 100%; padding: 14px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer;">✨ 生成文案</button>
+                </div>
+            </div>
+
+            <div id="mode-fashion" style="display: none;">
+                <div style="background: #fff; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); padding: 32px;">
+                    <h2 style="font-size: 24px; font-weight: bold; margin-bottom: 24px;">👗 服装文案生成</h2>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                        <div>
+                            <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px;">服装描述 *</label>
+                            <input type="text" id="f-desc" style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px;" placeholder="如：米色针织开衫">
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px;">风格 *</label>
+                            <select id="f-style" style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px;">
+                                <option value="韩系">韩系</option>
+                                <option value="法式">法式</option>
+                                <option value="日系">日系</option>
+                                <option value="通勤">通勤</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="margin: 16px 0;">
+                        <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px;">上传服装照片（可选）</label>
+                        <div class="upload-area" onclick="document.getElementById('f-image').click()">
+                            <div style="font-size: 32px; margin-bottom: 8px;">👕</div>
+                            <p style="color: #6b7280; font-size: 14px;">点击上传照片</p>
+                        </div>
+                        <input type="file" id="f-image" accept="image/*" style="display: none;" onchange="handleImage(this)">
+                    </div>
+                    <button onclick="generateFashion()" style="width: 100%; padding: 14px; background: #ec4899; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer;">✨ 生成文案</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="step2" class="step">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                <div style="background: #fff; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); padding: 24px;">
+                    <h2 style="font-size: 20px; font-weight: bold; margin-bottom: 16px;">📝 编辑文案</h2>
+                    <textarea id="edit-content" style="width: 100%; height: 400px; padding: 16px; border: 1px solid #d1d5db; border-radius: 8px; font-family: monospace; font-size: 14px; line-height: 1.6; resize: none;"></textarea>
+                    <div style="margin-top: 16px; display: flex; gap: 12px;">
+                        <button onclick="document.getElementById('step1').classList.add('active'); document.getElementById('step2').classList.remove('active');" style="padding: 12px 24px; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; cursor: pointer;">← 返回</button>
+                        <button onclick="document.getElementById('step3').classList.add('active'); document.getElementById('step2').classList.remove('active'); renderPreview();" style="flex: 1; padding: 12px; background: #000; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">去排版 →</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="step3" class="step">
+            <div style="display: grid; grid-template-columns: 320px 1fr; gap: 24px;">
+                <div style="background: #fff; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); padding: 24px;">
+                    <h2 style="font-size: 20px; font-weight: bold; margin-bottom: 20px;">🎨 排版设置</h2>
+                    
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px;">封面标题</label>
+                        <input type="text" id="p-title" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;" oninput="renderPreview()">
+                    </div>
+
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px;">风格主题</label>
+                        <select id="p-theme" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;" onchange="renderPreview()">
+                            <option value="theme-ocean">🌊 海洋风</option>
+                            <option value="theme-pink">🌸 粉色风</option>
+                            <option value="theme-blue">💙 紫蓝风</option>
+                            <option value="theme-warm">📖 书卷风</option>
+                            <option value="theme-neon">⚡ 荧光风</option>
+                            <option value="theme-dark">🌙 暗夜风</option>
+                        </select>
+                    </div>
+
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px;">作者署名</label>
+                        <input type="text" id="p-author" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;" value="xupaozi" oninput="renderPreview()">
+                    </div>
+
+                    <button onclick="downloadCard()" style="width: 100%; padding: 14px; background: #000; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">📥 导出图片</button>
+                </div>
+
+                <div style="background: #e5e7eb; border-radius: 16px; padding: 32px; display: flex; justify-content: center;">
+                    <div id="preview-card" class="card theme-ocean">
+                        <div id="has-image" style="display: none;">
+                            <img id="preview-cover-img" class="cover-image">
+                        </div>
+                        <div style="padding: 32px;">
+                            <div id="preview-date" style="font-size: 12px; font-weight: bold; letter-spacing: 2px; margin-bottom: 16px; opacity: 0.7;">VOL.01</div>
+                            <h1 id="preview-title" style="font-size: 26px; font-weight: 900; margin-bottom: 16px; line-height: 1.3;">标题</h1>
+                            <div id="preview-content" style="font-size: 14px; line-height: 1.8;">内容...</div>
+                            <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid currentColor; opacity: 0.5; display: flex; justify-content: space-between; font-size: 12px;">
+                                <span id="preview-author">xupaozi</span>
+                                <span>小红书</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="loading" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 100;">
+        <div style="background: white; border-radius: 16px; padding: 40px; text-align: center;">
+            <div style="font-size: 48px; margin-bottom: 16px;" class="loading">✨</div>
+            <p style="font-weight: bold; font-size: 16px;">AI正在生成文案...</p>
+        </div>
+    </div>
+
+    <script>
+        let currentMode = 'railway';
+        let currentImage = null;
+
+        function switchMode(mode) {
+            currentMode = mode;
+            document.getElementById('mode-railway').style.display = mode === 'railway' ? 'block' : 'none';
+            document.getElementById('mode-fashion').style.display = mode === 'fashion' ? 'block' : 'none';
+            document.getElementById('tab-railway').style.background = mode === 'railway' ? '#fff' : '#374151';
+            document.getElementById('tab-railway').style.color = mode === 'railway' ? '#000' : '#fff';
+            document.getElementById('tab-fashion').style.background = mode === 'fashion' ? '#ec4899' : '#374151';
+            document.getElementById('tab-fashion').style.color = '#fff';
+        }
+
+        function handleImage(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                currentImage = e.target.result;
+                document.getElementById('r-preview').src = currentImage;
+                document.getElementById('r-preview-box').style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function clearImage() {
+            currentImage = null;
+            document.getElementById('r-image').value = '';
+            document.getElementById('r-preview-box').style.display = 'none';
+        }
+
+        function generateRailway() {
+            const station = document.getElementById('r-station').value || 'XX站';
+            const type = document.getElementById('r-type').value;
+            
+            document.getElementById('loading').style.display = 'flex';
+            
+            setTimeout(() => {
+                const content = `【${station}${type}攻略】第一次来也不慌！\n\n📍 位置指引\n进入车站后跟随指示牌\n\n✨ 实用Tips：\n• 提前30分钟到站\n• 带身份证刷脸进\n• 高峰期提前1小时\n\n#高铁出行 #${station}`;
+                
+                document.getElementById('edit-content').value = content;
+                document.getElementById('p-title').value = `${station}${type}攻略`;
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('step2').classList.add('active');
+                document.getElementById('step1').classList.remove('active');
+            }, 1500);
+        }
+
+        function generateFashion() {
+            const desc = document.getElementById('f-desc').value || '这款单品';
+            const style = document.getElementById('f-style').value;
+            
+            document.getElementById('loading').style.display = 'flex';
+            
+            setTimeout(() => {
+                const content = `【${style}穿搭｜${desc}太绝了！】\n\n姐妹们！挖到宝了！✨\n\n👗 穿搭信息\n${desc}\n风格：${style}\n\n💕 我的感受\n• 面料超舒服\n• 版型显瘦\n• 颜色百搭\n\n#${style}穿搭 #ootd`;
+                
+                document.getElementById('edit-content').value = content;
+                document.getElementById('p-title').value = `${style}穿搭分享`;
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('step2').classList.add('active');
+                document.getElementById('step1').classList.remove('active');
+            }, 1500);
+        }
+
+        function renderPreview() {
+            const title = document.getElementById('p-title').value || '标题';
+            const author = document.getElementById('p-author').value || 'xupaozi';
+            const theme = document.getElementById('p-theme').value;
+            const content = document.getElementById('edit-content').value || '';
+
+            document.getElementById('preview-title').textContent = title;
+            document.getElementById('preview-author').textContent = author;
+            
+            // 处理内容
+            let displayContent = content
+                .replace(/【(.+?)】/g, '<div style="font-weight: bold; font-size: 16px; margin: 12px 0 8px;">$1</div>')
+                .replace(/\n/g, '<br>');
+            document.getElementById('preview-content').innerHTML = displayContent;
+
+            // 应用主题
+            const card = document.getElementById('preview-card');
+            card.className = 'card ' + theme;
+            
+            // 显示图片
+            if (currentImage) {
+                document.getElementById('has-image').style.display = 'block';
+                document.getElementById('preview-cover-img').src = currentImage;
+            } else {
+                document.getElementById('has-image').style.display = 'none';
+            }
+        }
+
+        async function downloadCard() {
+            const card = document.getElementById('preview-card');
+            try {
+                const dataUrl = await htmlToImage.toJpeg(card, { quality: 0.95, pixelRatio: 2 });
+                saveAs(dataUrl, '小红书_' + document.getElementById('p-title').value + '.jpg');
+            } catch (e) {
+                alert('导出失败: ' + e);
+            }
+        }
+    </script>
+</body>
+</html>
