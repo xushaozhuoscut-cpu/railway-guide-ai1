@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高铁导览AI + 小红书排版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
+    <style>
+        body { font-family: 'Inter', 'Noto Sans SC', sans-serif; background: #f5f5f5; }
+        .card { width: 375px; min-height: 500px; background: white; box-shadow: 0 4px 20px rgba(0,0,0,0.1); margin: 20px auto; padding: 40px; }
+        .theme-blue { background: #EBF5FB; color: #1E3A5F; }
+        .theme-warm { background: #F2EFE9; color: #2c2c2c; }
+        .loading { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .step { display: none; }
+        .step.active { display: block; }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- Header -->
+    <div class="bg-black text-white py-4 px-6 flex justify-between items-center">
+        <h1 class="font-bold text-lg">🚄 高铁导览AI + 小红书排版</h1>
+        <div class="flex gap-2">
+            <button onclick="showStep(1)" class="text-xs bg-gray-800 px-3 py-1 rounded hover:bg-gray-700">Step 1: 上传</button>
+            <button onclick="showStep(2)" class="text-xs bg-gray-800 px-3 py-1 rounded hover:bg-gray-700">Step 2: 文案</button>
+            <button onclick="showStep(3)" class="text-xs bg-gray-800 px-3 py-1 rounded hover:bg-gray-700">Step 3: 排版</button>
+        </div>
+    </div>
+
+    <div class="max-w-6xl mx-auto p-6">
+        <!-- Step 1: 上传图片 -->
+        <div id="step1" class="step active">
+            <div class="bg-white rounded-xl shadow-lg p-8">
+                <h2 class="text-2xl font-bold mb-6">📸 上传高铁站照片</h2>
+                <div class="grid grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">车站名称</label>
+                        <input type="text" id="station-name" class="w-full border rounded-lg p-3" placeholder="如：北京南站">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">服务点类型</label>
+                        <select id="location-type" class="w-full border rounded-lg p-3">
+                            <option value="进站口">进站口</option>
+                            <option value="安检口">安检口</option>
+                            <option value="候车大厅">候车大厅</option>
+                            <option value="检票口">检票口</option>
+                            <option value="服务台">服务台</option>
+                            <option value="餐饮购物">餐饮购物</option>
+                            <option value="出站换乘">出站/换乘</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="mt-6">
+                    <label class="block text-sm font-medium mb-2">上传照片</label>
+                    <div class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-500 transition-colors cursor-pointer" onclick="document.getElementById('photo-input').click()">
+                        <div class="text-4xl mb-2">📷</div>
+                        <p class="text-gray-500">点击上传或拖拽照片到这里</p>
+                        <p class="text-xs text-gray-400 mt-1">支持 JPG、PNG</p>
+                    </div>
+                    <input type="file" id="photo-input" accept="image/*" class="hidden" onchange="handlePhotoUpload(this)">
+                </div>
+
+                <div id="photo-preview" class="mt-6 hidden">
+                    <img id="preview-img" class="max-h-64 rounded-lg shadow mx-auto">
+                </div>
+
+                <div class="mt-6 flex gap-4">
+                    <button onclick="generateCopy()" class="flex-1 bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition">
+                        ✨ AI生成文案
+                    </button>
+                    <button onclick="skipToEdit()" class="px-6 border border-gray-300 py-3 rounded-lg hover:bg-gray-50">
+                        跳过，直接排版
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: 编辑文案 -->
+        <div id="step2" class="step">
+            <div class="grid grid-cols-2 gap-6">
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h2 class="text-xl font-bold mb-4">📝 编辑文案</h2>
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-1">目标平台</label>
+                        <select id="platform" class="w-full border rounded p-2" onchange="updateTemplate()">
+                            <option value="小红书">小红书</option>
+                            <option value="抖音">抖音</option>
+                            <option value="朋友圈">朋友圈</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-1">语气风格</label>
+                        <select id="tone" class="w-full border rounded p-2">
+                            <option value="亲切贴心">亲切贴心</option>
+                            <option value="专业高效">专业高效</option>
+                            <option value="活泼有趣">活泼有趣</option>
+                        </select>
+                    </div>
+
+                    <textarea id="generated-content" class="w-full h-96 border rounded-lg p-4 font-mono text-sm" placeholder="AI生成的文案会显示在这里...
+
+也可以直接粘贴自己的文案"></textarea>
+                    
+                    <div class="mt-4 flex gap-2">
+                        <button onclick="regenerate()" class="flex-1 bg-gray-100 py-2 rounded hover:bg-gray-200">重新生成</button>
+                        <button onclick="showStep(3)" class="flex-1 bg-black text-white py-2 rounded hover:bg-gray-800">去排版 →</button>
+                    </div>
+                </div>
+
+                <div class="bg-gray-100 rounded-xl p-6">
+                    <h3 class="font-bold mb-4">💡 提示</h3>
+                    <ul class="text-sm text-gray-600 space-y-2">
+                        <li>• 小红书风格： emoji 多、分段短</li>
+                        <li>• 抖音风格： 开头抓眼球、节奏快</li>
+                        <li>• 可以手动修改AI生成的文案</li>
+                        <li>• 用 **文字** 可以加粗</li>
+                    </ul>
+                    
+                    <div class="mt-6 p-4 bg-blue-50 rounded-lg">
+                        <h4 class="font-bold text-blue-800 mb-2">当前照片</h4>
+                        <img id="step2-img" class="max-h-32 rounded">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3: 小红书排版 -->
+        <div id="step3" class="step">
+            <div class="grid grid-cols-3 gap-6">
+                <!-- 左侧：排版设置 -->
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h2 class="text-xl font-bold mb-4">🎨 排版设置</h2>
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-1">封面标题</label>
+                        <input type="text" id="cover-title" class="w-full border rounded p-2" value="">
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-1">风格主题</label>
+                        <select id="theme" class="w-full border rounded p-2" onchange="renderCard()">
+                            <option value="theme-blue">🔵 浅蓝风</option>
+                            <option value="theme-warm">📖 书卷风</option>
+                            <option value="theme-neon">⚡ 冲击波</option>
+                            <option value="theme-dark">🔷 科技风</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-1">作者署名</label>
+                        <input type="text" id="author" class="w-full border rounded p-2" value="xupaozi">
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-1">日期/期号</label>
+                        <input type="text" id="date-vol" class="w-full border rounded p-2" value="VOL.01">
+                    </div>
+
+                    <button onclick="downloadCard()" class="w-full bg-black text-white py-3 rounded-lg font-bold hover:bg-gray-800">
+                        📥 导出图片
+                    </button>
+                    
+                    <button onclick="showStep(1)" class="w-full mt-2 border border-gray-300 py-2 rounded hover:bg-gray-50">
+                        ← 重新开始
+                    </button>
+                </div>
+
+                <!-- 右侧：预览 -->
+                <div class="col-span-2 bg-gray-200 rounded-xl p-8 flex justify-center overflow-auto">
+                    <div id="card-preview" class="card theme-blue">
+                        <div class="h-full flex flex-col">
+                            <div class="text-xs font-bold tracking-widest mb-4 opacity-60" id="card-date">VOL.01</div>
+                            <h1 id="card-title" class="text-3xl font-black mb-4 leading-tight">标题</h1>
+                            <div class="w-12 h-1 bg-blue-500 mb-6"></div>
+                            <div id="card-content" class="flex-1 overflow-hidden text-sm leading-relaxed">
+                                内容预览...
+                            </div>
+                            <div class="mt-auto pt-4 border-t border-blue-300/30 flex justify-between items-center text-xs">
+                                <span id="card-author" class="font-bold">xupaozi</span>
+                                <span>高铁出行指南</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 模拟AI生成loading -->
+    <div id="loading-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-xl p-8 text-center">
+            <div class="text-4xl mb-4 loading">✨</div>
+            <p class="font-bold">AI正在分析照片生成文案...</p>
+            <p class="text-sm text-gray-500 mt-2">请稍候</p>
+        </div>
+    </div>
+
+    <script>
+        // 状态管理
+        let currentPhoto = null;
+        let generatedText = '';
+        
+        // 显示步骤
+        function showStep(n) {
+            document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+            document.getElementById('step'+n).classList.add('active');
+        }
+        
+        // 处理照片上传
+        function handlePhotoUpload(input) {
+            const file = input.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                currentPhoto = e.target.result;
+                document.getElementById('preview-img').src = currentPhoto;
+                document.getElementById('step2-img').src = currentPhoto;
+                document.getElementById('photo-preview').classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        // 模拟AI生成文案
+        function generateCopy() {
+            const station = document.getElementById('station-name').value || 'XX高铁站';
+            const location = document.getElementById('location-type').value;
+            
+            if (!currentPhoto) {
+                alert('请先上传照片');
+                return;
+            }
+            
+            document.getElementById('loading-modal').classList.remove('hidden');
+            document.getElementById('loading-modal').classList.add('flex');
+            
+            // 模拟API延迟
+            setTimeout(() => {
+                const templates = {
+                    '进站口': `【${station}进站攻略】第一次来也不慌！📍
+
+✨ 进站流程超简单：
+1️⃣ 提前准备好身份证
+2️⃣ 找到对应进站口（东/西广场）
+3️⃣ 刷脸或刷证秒进站
+
+💡 贴心Tips：
+• 东进站口 → 靠近地铁A口
+• 西进站口 → 适合打车的小伙伴
+• 无障碍通道在两侧，电梯直达
+
+⏰ 建议提前30分钟到
+     高峰期预留1小时更保险！
+
+#高铁出行 #${station} #旅行攻略`,
+                    
+                    '安检口': `【${station}安检快速通关】⚡
+
+🚫 这些东西别带：
+• 超过100ml的液体
+• 充电宝要拿出来检查
+• 喷雾类物品有限制
+
+✅ 快速过检秘诀：
+1. 提前掏出口袋里的东西
+2. 大衣外套建议脱掉
+3. 电脑、平板单独放
+
+👶 带娃家庭走左侧爱心通道
+     不用排队超方便！
+
+#高铁安检 #出行小贴士`,
+                    
+                    '候车大厅': `【${station}候车指南】舒服的等车体验☕
+
+🎯 找检票口小技巧：
+数字小的 → 往A区走
+数字大的 → 往B区走
+
+🍔 吃喝指南：
+• 麦当劳在二楼东侧
+• 便利店24小时营业
+• 自动贩卖机随处可见
+
+🔌 充电位置：
+座椅下方有插座
+按摩椅旁边也有USB口
+
+#高铁候车 #出行攻略`,
+                    
+                    '检票口': `【${station}检票攻略】准点上车不慌张！🚄
+
+⏰ 时间节点要记牢：
+• 开车前15分钟开始检票
+• 开车前3分钟停止检票
+• 提前10分钟到最保险
+
+🎫 检票方式：
+刷身份证 ✅ 最方便
+刷脸进站 ✅ 更快
+人工通道 ✅ 带小孩的走这里
+
+🚇 A/B口对应车厢：
+A口 → 小号车厢（1-8）
+B口 → 大号车厢（9-16）
+
+#高铁检票 #准点出行`,
+                    
+                    '服务台': `【${station}服务中心】有问题找这里！💁‍♀️
+
+📍 位置：候车大厅正中央
+     红色标识很明显
+
+🆘 能办的业务：
+• 改签、退票
+• 临时身份证办理
+• 失物招领登记
+• 重点旅客预约
+
+♿ 便民服务：
+轮椅、拐杖免费借用
+母婴室休息
+医务室应急
+
+#高铁服务 #便民信息`,
+                    
+                    '出站换乘': `【${station}出站指南】无缝衔接市区！🚌
+
+🚇 地铁：
+出站后右转 → 地铁入口
+支持扫码/刷卡/现金
+
+🚕 打车：
+• 网约车 → 东广场负二层
+• 出租车 → 西广场排队
+
+🚌 公交：
+站台在地面层
+多条线路可达市区
+
+🧳 行李寄存：
+出站口旁有寄存柜
+大件行李也能存
+
+#高铁出站 #交通接驳`,
+                    
+                    '餐饮购物': `【${station}美食地图】等车不无聊！🍜
+
+🍔 快餐选择：
+• 肯德基（二楼东侧）
+• 麦当劳（一楼西侧）
+• 真功夫（中部区域）
+
+☕ 咖啡茶饮：
+星巴克、瑞幸都有
+候车来一杯提神
+
+🛍️ 特产购买：
+当地特产店在安检口旁
+礼盒装适合送人
+
+💰 价格参考：
+比市区贵10-20%
+但胜在方便
+
+#高铁美食 #车站购物`
+                };
+                
+                generatedText = templates[location] || templates['进站口'];
+                document.getElementById('generated-content').value = generatedText;
+                
+                // 自动提取标题
+                const titleMatch = generatedText.match(/【(.+?)】/);
+                if (titleMatch) {
+                    document.getElementById('cover-title').value = titleMatch[1];
+                }
+                
+                document.getElementById('loading-modal').classList.add('hidden');
+                document.getElementById('loading-modal').classList.remove('flex');
+                
+                showStep(2);
+            }, 1500);
+        }
+        
+        // 跳过直接排版
+        function skipToEdit() {
+            showStep(2);
+        }
+        
+        // 重新生成
+        function regenerate() {
+            generateCopy();
+        }
+        
+        // 渲染卡片
+        function renderCard() {
+            const title = document.getElementById('cover-title').value || '高铁出行指南';
+            const author = document.getElementById('author').value || 'xupaozi';
+            const date = document.getElementById('date-vol').value || 'VOL.01';
+            const content = document.getElementById('generated-content').value || '';
+            const theme = document.getElementById('theme').value;
+            
+            document.getElementById('card-title').textContent = title;
+            document.getElementById('card-author').textContent = author;
+            document.getElementById('card-date').textContent = date;
+            
+            // 处理内容（简化版，去掉markdown语法）
+            let displayContent = content
+                .replace(/【(.+?)】/g, '<h2 class="font-bold text-lg mb-2 mt-4">$1</h2>')
+                .replace(/#{1,6}\s?/g, '')
+                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                .replace(/• /g, '· ')
+                .replace(/\n/g, '<br>');
+            
+            document.getElementById('card-content').innerHTML = displayContent;
+            
+            // 应用主题
+            const card = document.getElementById('card-preview');
+            card.className = 'card ' + theme;
+            
+            // 主题特定样式
+            if (theme === 'theme-blue') {
+                card.style.background = '#EBF5FB';
+                card.style.color = '#1E3A5F';
+            } else if (theme === 'theme-warm') {
+                card.style.background = '#F2EFE9';
+                card.style.color = '#2c2c2c';
+            } else if (theme === 'theme-neon') {
+                card.style.background = '#CCFF00';
+                card.style.color = '#000';
+            } else if (theme === 'theme-dark') {
+                card.style.background = '#0F172A';
+                card.style.color = '#E2E8F0';
+            }
+        }
+        
+        // 导出图片
+        async function downloadCard() {
+            const card = document.getElementById('card-preview');
+            try {
+                const dataUrl = await htmlToImage.toJpeg(card, { quality: 0.9, pixelRatio: 2 });
+                saveAs(dataUrl, '高铁导览_' + document.getElementById('cover-title').value + '.jpg');
+            } catch (e) {
+                alert('导出失败: ' + e);
+            }
+        }
+        
+        // 监听输入变化
+        document.getElementById('cover-title').addEventListener('input', renderCard);
+        document.getElementById('author').addEventListener('input', renderCard);
+        document.getElementById('date-vol').addEventListener('input', renderCard);
+        document.getElementById('generated-content').addEventListener('input', function() {
+            generatedText = this.value;
+            renderCard();
+        });
+        
+        // 初始化
+        renderCard();
+    </script>
+</body>
+</html>
